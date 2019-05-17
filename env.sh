@@ -11,6 +11,11 @@ KALDI_STEPS_PATH=/export/b15/snidada1/kaldi_mixed_bw/egs/wsj/s5/steps
 KALDI_UTILS_PATH=/export/b15/snidada1/kaldi_mixed_bw/egs/wsj/s5/utils
 WORKSPACE_PATH=/home/snidada1/usr/src/workspace
 
+#
+DOMAIN_ADAPTATION_BIN_DIR=/home/snidada1/usr/src/workspace/workspace/pytorch_utils/domain_adaptation/bin
+ENHANCEMENT_BIN_DIR=/home/snidada1/usr/src/workspace/workspace/pytorch_utils/enhancement_bwe/bin
+
+
 export PATH=$HYP_PATH/hyperion/bin:/usr/local/cuda/bin:$LASYAM_PATH/lasyam/nnet_tools:$PATH
 export PYTHONPATH=$HYP_PATH:$KERAS_PATH:$LASYAM_PATH:$KALDI_IO_PATH:$KALDI_STEPS_PATH:$KALDI_UTILS_PATH:$WORKSPACE_PATH:$PYTHONPATH
 export LD_LIBRARY_PATH
