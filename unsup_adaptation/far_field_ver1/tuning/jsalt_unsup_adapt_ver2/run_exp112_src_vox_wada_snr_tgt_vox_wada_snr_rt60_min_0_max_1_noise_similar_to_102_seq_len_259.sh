@@ -15,8 +15,9 @@ source /home/snidada1/.bashrc
 bindir=$ENHANCEMENT_BIN_DIR
 
 # ARGS
-ftype=fbank_wb_mel_40
-data_dir=data/fbank_wb_mel_40/train_dirs/SRC_vox_wada_snr_TGT_voices_dev
+ftype=fbank_ver2_wb_mel_40
+feadir=data/$ftype
+data_dir=$feadir/train_dirs/SRC_vox_wada_snr_TGT_vox_wada_snr_rt60_min_0_max_1_noise
 
 # optional arguments for traing
 optim_type=adam
@@ -25,11 +26,15 @@ lr=0.0003
 disc_lr=0.0001
 batch_size=32
 max_epochs=100
+exit_epoch=100
 reg_type=l2
 dropout_per=0.4
 iters_per_epoch=1
-seq_len=127
+seq_len=259
 num_workers=1
+
+src_name=src
+tgt_name=tgt
 
 reg_label=$reg_type
 if [ "$reg_type" == "l2" ]; then
@@ -37,10 +42,15 @@ if [ "$reg_type" == "l2" ]; then
 fi
 
 # Loss wts
-cycle_loss_wt=2.5
-idt_loss_wt=0.0
+src_cycle_loss_wt=2.5  # src stands for reverb and tgt stands for clean
+tgt_cycle_loss_wt=2.5
+src_idt_loss_wt=0.0
+tgt_idt_loss_wt=0.0
+src_sup_loss_wt=0.0
+tgt_sup_loss_wt=0.0
+adv_loss_wt=1.0
 
-print_freq=100
+print_freq=500
 save_freq=1
 
 # model options
@@ -53,23 +63,44 @@ norm_layer_type=instancenorm2d     # batchnorm2d or instancenorm2d
 data_format=nCFD
 model_name=cycle_gan_cnn
 model_ver=ver3
-trainer_ver=ver1
+trainer_ver=ver2
 
 splice=0
 inp_fea_dim=40
 out_fea_dim=40
 
+setup_logger=true
+debug_mode=false
+no_cuda=false
+
+# Forward pass options
+fwd_pass_while_training=true
+fwd_pass_on_gpu=false
+fwd_pass_dir_list=data/fbank_ver2_wb_mel_40/fwd_pass_dirs/fwd_pass_dir.lst
+fwd_pass_storage_machines="b14 b15 b16 b17 fs01"
+fwd_pass_num_arks=40
+fwd_pass_storage_dir="JSALT19_STORAGE_FOR_DOMAIN_ADAPTATION_WORK"
+fwd_pass_output_feats_type="src_gen"
+fwd_pass_epochs="50 60"
+fwd_pass_in_chunks=true
+fwd_pass_chunk_size=80
+fwd_pass_user_name=$USER
+fwd_pass_exp_id=$expid
+fwd_pass_data_dir=$feadir/fwd_pass_dirs
+
 # exp dir name
 data_name=`basename $data_dir`
-conv_label=num_res_${num_res_blocks}_nfilter_${nfilter}
-loss_label=cycle_lwt_${cycle_loss_wt}_idt_lwt_${idt_loss_wt}
-exp_name=exp_${expid}_model_trainer_${trainer_ver}_${conv_label}_data_name_${data_name}_optim_${optim_type}_lr_${lr}_reg_${reg_label}_df_${data_format}_bs_${batch_size}_seq_len_${seq_len}_adam_beta1_${adam_beta1}_${loss_label}
+conv_label=num_res_${num_res_blocks}_nfilter_${nfilter}_ksfl_${kernel_size_first_layer}
+loss_label=lwts_cycle_src_${src_cycle_loss_wt}_tgt_${tgt_cycle_loss_wt}_idt_src_${src_idt_loss_wt}_tgt_${tgt_idt_loss_wt}_sup_src_${src_sup_loss_wt}_tgt_${tgt_sup_loss_wt}_adv_${adv_loss_wt}
+exp_name=exp_${expid}_model_train_${trainer_ver}_${conv_label}_data_name_${data_name}_optim_${optim_type}_lr_${lr}_reg_${reg_label}_df_${data_format}_bs_${batch_size}_seq_len_${seq_len}_${loss_label}
 exp_dir=`pwd`/exp/${model_name}_${model_ver}_models/${exp_name}
-
 
 python_script="$bindir/train-cycle-gan-cnn-for-enhancement-${trainer_ver}.py"
 
-train_args="--setup-logger true
+train_args="--setup-logger $setup_logger
+        --debug-mode $debug_mode
+        --exit-epoch $exit_epoch
+        --no-cuda $no_cuda
         --data-dir $data_dir --exp-dir $exp_dir
         --gen-lr $lr
         --disc-lr $disc_lr
@@ -86,37 +117,57 @@ train_args="--setup-logger true
         --iters-per-epoch $iters_per_epoch
         --norm-layer-type $norm_layer_type
         --gen-num-res-blocks $num_res_blocks
-        --src-identity-loss-wt $idt_loss_wt
-        --tgt-identity-loss-wt $idt_loss_wt
-        --cycle-loss-wt $cycle_loss_wt
+        --src-identity-loss-wt $src_idt_loss_wt
+        --tgt-identity-loss-wt $tgt_idt_loss_wt
+        --src-cycle-loss-wt $src_cycle_loss_wt
+        --tgt-cycle-loss-wt $tgt_cycle_loss_wt
+        --src-sup-loss-wt $src_sup_loss_wt
+        --tgt-sup-loss-wt $tgt_sup_loss_wt
         --reg-type $reg_type
         --src-inp-fea-dim $inp_fea_dim
         --tgt-inp-fea-dim $out_fea_dim
-        --src-name src --tgt-name tgt
+        --src-name $src_name --tgt-name $tgt_name
         --num-workers $num_workers
         --gen-nfilter $nfilter
         --adam-beta1 $adam_beta1
         --print-freq $print_freq
         --save-freq $save_freq
-        --fwd-pass.while-training false
-        --fwd-pass.exp-id $expid
         --gen-kernel-size-first-layer $kernel_size_first_layer"
 
+fwd_pass_args="--fwd-pass.while-training $fwd_pass_while_training
+                --fwd-pass.on-gpu $fwd_pass_on_gpu
+                --fwd-pass.dir-list $fwd_pass_dir_list
+                --fwd-pass.storage-machines $fwd_pass_storage_machines
+                --fwd-pass.num-arks $fwd_pass_num_arks
+                --fwd-pass.storage-dir $fwd_pass_storage_dir
+                --fwd-pass.output-feats-type $fwd_pass_output_feats_type
+                --fwd-pass.epochs $fwd_pass_epochs
+                --fwd-pass.in-chunks $fwd_pass_in_chunks
+                --fwd-pass.chunk-size $fwd_pass_chunk_size
+                --fwd-pass.user-name $fwd_pass_user_name
+                --fwd-pass.exp-id $fwd_pass_exp_id
+                --fwd-pass.data-dir $fwd_pass_data_dir"
+
+#echo $fwd_pass_args
 
 if [ $stage -eq 0 ]; then
     # BEFORE SUBMITTING THIS MAKE SURE YOU HAVE A GPU RESERVED VIA QLOGIN
     # qlogin -l 'hostname=b1*|c*,gpu=1' -now no
     # and then train the model
+    #source activate pytorch_gpu_test
     [ ! -f $python_script ] && echo "training script $python_script does not exist" && exit 1;
     [ ! -d submit_scripts/logs ] && mkdir -p submit_scripts/logs
     sub_script=submit_scripts/ffda_${expid}_${trainer_ver}_${model_name}_${model_ver}.sh
     cat train_adaptation.sh > $sub_script
     chmod 755 $sub_script
 
-    qsub -e submit_scripts/logs/err${expid}_${model_name}_${model_ver}.log -o submit_scripts/logs/out${expid}_${model_name}_${model_ver}.log -cwd -l 'hostname=c*,gpu=1' $sub_script $python_script $train_args || exit 1;
-
-    #python $python_script $train_args || exit 1;
-
+    if [ "$no_cuda" == "true" ]; then
+        python $python_script $train_args $fwd_pass_args || exit 1;
+    else
+        qsub -e submit_scripts/logs/err${expid}_${model_name}_${model_ver}.log -o submit_scripts/logs/out${expid}_${model_name}_${model_ver}.log -cwd -V -l 'hostname=c*,gpu=1' $sub_script $python_script $train_args $fwd_pass_args || exit 1;
+        #echo gpu jobs not setup yet
+    fi
+    #source deactivate
     exit 0;
 fi
 
@@ -125,7 +176,7 @@ if [ $stage -eq 1 ]; then
     extract_cmd="queue.pl --max-jobs-run 50 -l arch=*64* -l ram_free=6G,mem_free=6G,\"hostname=[bc]*[1]*[123456789]*\" -V"
     echo extract_cmd is $extract_cmd
     nj_test=50
-    for test_epoch in 65 70 75 80 60; do
+    for test_epoch in 65 70 60; do
 
       for name in sitw_eval_enroll_no_sil sitw_eval_test_no_sil sitw_dev_test_no_sil sitw_dev_enroll_no_sil \
                     sitw_eval_enroll_reverb_no_sil sitw_eval_test_reverb_no_sil sitw_dev_test_reverb_no_sil sitw_dev_enroll_reverb_no_sil \
@@ -159,8 +210,8 @@ if [ $stage -eq 1 ]; then
             $MY_PYTHON $bindir/test-cycle-gan-cnn-ver2.py $train_args \
                 --test-epoch $test_epoch \
                 --job-id JOB --max-jobs $nj_test \
-                --forward-pass-in-chunks \
-                --forward-pass-chunk-size 48 \
+                --forward-pass-in-chunks $fwd_pass_in_chunks \
+                --forward-pass-chunk-size $fwd_pass_chunk_size \
                 --forward-pass-seq-length $seq_len \
                 --output-feats-type $output_feats_type \
                 --print-freq 5 \

@@ -1,9 +1,10 @@
-export KALDI_ROOT=/export/b16/snidada1/kaldi_bwe
+export KALDI_ROOT=/export/b17/snidada1/kaldi_jsalt_2019
 export PATH=$KALDI_ROOT/egs/sre16/v2/utils/:$KALDI_ROOT/tools/openfst/bin:$KALDI_ROOT/tools/sph2pipe_v2.5:$PWD:$PATH
 [ ! -f $KALDI_ROOT/tools/config/common_path.sh ] && echo >&2 "The standard file $KALDI_ROOT/tools/config/common_path.sh is not present -> Exit!" && exit 1
 . $KALDI_ROOT/tools/config/common_path.sh
 
-HYP_PATH=/home/snidada1/usr/src/phani_hyperion
+#HYP_PATH=/home/snidada1/usr/src/phani_hyperion
+HYP_PATH=/export/b17/janto/hyperion/hyperion-jsalt19
 KERAS_PATH=/home/snidada1/usr/local/keras
 LASYAM_PATH=/home/snidada1/usr/src/lasyam
 KALDI_IO_PATH=/home/snidada1/usr/src/kaldi-io-for-python
